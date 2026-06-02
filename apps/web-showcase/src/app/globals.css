@@ -1,0 +1,58 @@
+@import "tailwindcss";
+/* @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Cinzel:wght@600;800&family=Lobster&family=Montserrat:wght@500;800&family=Outfit:wght@400;700;900&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,600;1,600&display=swap'); */
+
+:root {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --primary: #6366f1;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Outfit', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Subtle micro-animations and utility styles */
+.gradient-bg {
+  background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+}
+
+.glow-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow-btn:hover {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Diagonal stripe background for modern editor workspace grid */
+.checkerboard-grid {
+  background-color: #18181b;
+  background-image:
+    radial-gradient(circle, #27272a 1px, transparent 1px),
+    radial-gradient(circle, #27272a 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
