@@ -62,16 +62,18 @@ export class ConfiguratorEngine {
     const canvasWidth = this.canvas.getWidth();
     const canvasHeight = this.canvas.getHeight();
 
+    const { left: _l, top: _t, ...styleOptions } = options;
+
     const textObject = new Textbox(text, {
-      left: canvasWidth / 2 - 100,
-      top: canvasHeight / 2 - 25,
+      left: _l ?? canvasWidth / 2 - 100,
+      top: _t ?? canvasHeight / 2 - 25,
       width: 200,
-      fontFamily: options.fontFamily || "Outfit",
-      fontSize: options.fontSize || 32,
-      fill: options.fill || "#000000",
-      textAlign: options.textAlign || "center",
-      fontWeight: options.fontWeight || "normal",
-      fontStyle: options.fontStyle || "normal",
+      fontFamily: styleOptions.fontFamily || "Outfit",
+      fontSize: styleOptions.fontSize || 32,
+      fill: styleOptions.fill || "#000000",
+      textAlign: styleOptions.textAlign || "center",
+      fontWeight: styleOptions.fontWeight || "normal",
+      fontStyle: styleOptions.fontStyle || "normal",
       cornerColor: "#6366f1",
       cornerStrokeColor: "#ffffff",
       cornerStyle: "circle",
@@ -104,13 +106,20 @@ export class ConfiguratorEngine {
       });
 
       const targetWidth = options.width || 120;
-      const scale = targetWidth / img.width;
+      const targetHeight = options.height || (targetWidth * img.height) / img.width;
+      const scaleX = targetWidth / img.width;
+      const scaleY = targetHeight / img.height;
+
+      const defaultLeft = canvasWidth / 2 - targetWidth / 2;
+      const defaultTop = canvasHeight / 2 - targetHeight / 2;
+
+      const { width: _w, height: _h, ...restOptions } = options;
 
       img.set({
-        left: canvasWidth / 2 - (img.width * scale) / 2,
-        top: canvasHeight / 2 - (img.height * scale) / 2,
-        scaleX: scale,
-        scaleY: scale,
+        left: defaultLeft,
+        top: defaultTop,
+        scaleX,
+        scaleY,
         cornerColor: "#6366f1",
         cornerStrokeColor: "#ffffff",
         cornerStyle: "circle",
@@ -118,7 +127,7 @@ export class ConfiguratorEngine {
         cornerSize: 10,
         borderColor: "#6366f1",
         borderScaleFactor: 2,
-        ...options,
+        ...restOptions,
       });
 
       this.canvas.add(img);
@@ -131,6 +140,18 @@ export class ConfiguratorEngine {
 
   public async addImage(url: string) {
     await this.addSticker(url, { width: 160 });
+  }
+
+  public clearAll() {
+    const objects = this.canvas.getObjects();
+    for (const obj of objects) {
+      if (obj.selectable && obj.type !== "rect") {
+        this.canvas.remove(obj);
+      }
+    }
+    this.removeBackgroundImage();
+    this.canvas.discardActiveObject();
+    this.canvas.renderAll();
   }
 
   public deleteSelected() {
@@ -245,6 +266,59 @@ export class ConfiguratorEngine {
     this.canvas.renderAll();
 
     return dataUrl;
+  }
+
+  public async setClipPath(imageUrl: string) {
+    try {
+      const img = await FabricImage.fromURL(imageUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      const canvasWidth = this.canvas.getWidth();
+      const canvasHeight = this.canvas.getHeight();
+
+      const scaleX = canvasWidth / img.width;
+      const scaleY = canvasHeight / img.height;
+      const scale = Math.min(scaleX, scaleY);
+
+      const offsetX = (canvasWidth - img.width * scale) / 2;
+      const offsetY = (canvasHeight - img.height * scale) / 2;
+
+      img.set({
+        left: offsetX,
+        top: offsetY,
+        scaleX: scale,
+        scaleY: scale,
+        originX: "left",
+        originY: "top",
+        selectable: false,
+        evented: false,
+        hoverCursor: "default",
+        absolutePositioned: true,
+      });
+
+      this.canvas.clipPath = img;
+      this.canvas.renderAll();
+    } catch (error) {
+      console.error("Failed to set clip path:", error);
+    }
+  }
+
+  public removeClipPath() {
+    (this.canvas.clipPath as any) = null;
+    this.canvas.renderAll();
+  }
+
+  public getCanvasElement(): HTMLCanvasElement {
+    return this.canvasElement;
+  }
+
+  public getCanvasWidth(): number {
+    return this.canvas.getWidth();
+  }
+
+  public getCanvasHeight(): number {
+    return this.canvas.getHeight();
   }
 
   public destroy() {
