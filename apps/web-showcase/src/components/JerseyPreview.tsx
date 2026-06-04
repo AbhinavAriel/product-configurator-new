@@ -51,7 +51,7 @@ export default function JerseyPreview({ materials }: Props) {
     .filter(Boolean);
 
   return (
-    <div className="relative w-[650px] h-[550px]">
+    <div className="relative w-[650px] h-[433px]">
       {sortedLayers.map((item) => {
         if (!item) return null;
         const { name, mat, img } = item;

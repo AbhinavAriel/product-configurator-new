@@ -80,7 +80,12 @@ const FONTS = [
   { name: "Permanent Marker", value: "Permanent Marker" },
 ];
 
-const STEPS = ["Color", "Text", "Stickers", "Review"] as const;
+const ALL_STEPS = ["Color", "Text", "Logo", "Stickers", "Review"] as const;
+
+function getVisibleSteps(productType: ProductType): readonly string[] {
+  if (productType === "tshirt") return ALL_STEPS.filter((s) => s !== "Stickers");
+  return ALL_STEPS.filter((s) => s !== "Logo");
+}
 
 const DUMMY_LOGO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" fill="none"><rect width="200" height="100" rx="12" fill="%236366f1"/><rect x="8" y="8" width="184" height="84" rx="6" stroke="%23c7d2fe" stroke-width="2" fill="none"/><text x="100" y="58" text-anchor="middle" fill="white" font-size="32" font-weight="900" font-family="Arial">LOGO</text></svg>';
 
@@ -94,12 +99,12 @@ const LOGO_POSITIONS = [
 ];
 
 const LOGO_POSITION_COORDS: Record<string, { left: number; top: number }> = {
-  "Left Breast": { left: 210, top: 195 },
-  "Right Breast": { left: 115, top: 195 },
-  "Center Chest": { left: 162, top: 215 },
-  "Reverse": { left: 490, top: 215 },
-  "Left Sleeve": { left: 25, top: 150 },
-  "Right Sleeve": { left: 590, top: 150 },
+  "Left Breast": { left: 222, top: 130 },
+  "Right Breast": { left: 117, top: 145 },
+  "Center Chest": { left: 165, top: 145 },
+  "Reverse": { left: 475, top: 123 },
+  "Left Sleeve": { left: 45, top: 170 },
+  "Right Sleeve": { left: 286, top: 187 },
 };
 
 const TEXT_POSITIONS: Record<string, { left: number; top: number }> = {
@@ -129,23 +134,37 @@ export default function Home() {
   const [textInput, setTextInput] = useState("");
   const [textFont, setTextFont] = useState("Outfit");
   const [textColor, setTextColor] = useState("#000000");
-  const [textSize, setTextSize] = useState(32);
+  const [textSize, setTextSize] = useState(26);
   const [isBold, setIsBold] = useState(false);
-  const [logoWidth, setLogoWidth] = useState(100);
-  const [logoHeight, setLogoHeight] = useState(80);
+  const [logoWidth, setLogoWidth] = useState(60);
+  const [logoHeight, setLogoHeight] = useState(50);
   const [logoPosition, setLogoPosition] = useState("Left Breast");
   const [isItalic, setIsItalic] = useState(false);
   const [textStepEnabled, setTextStepEnabled] = useState<boolean | null>(null);
   const [stickerStepEnabled, setStickerStepEnabled] = useState<boolean | null>(null);
+  const [logoStepEnabled, setLogoStepEnabled] = useState<boolean | null>(null);
+  const [selectedObjectType, setSelectedObjectType] = useState<string | null>(null);
+  const [selectedImageWidth, setSelectedImageWidth] = useState(0);
+  const [selectedImageHeight, setSelectedImageHeight] = useState(0);
   const [textAlignment, setTextAlignment] = useState<"left" | "center" | "right">("center");
   const [textPositionPreset, setTextPositionPreset] = useState("Center");
-  const [textPositionX, setTextPositionX] = useState(325);
-  const [textPositionY, setTextPositionY] = useState(250);
+  const [textPositionName, setTextPositionName] = useState("Center Chest");
+  const [textPositionX, setTextPositionX] = useState(165);
+  const [textPositionY, setTextPositionY] = useState(145);
+
+  const [mobileLogoWidth, setMobileLogoWidth] = useState(100);
+  const [mobileLogoHeight, setMobileLogoHeight] = useState(100);
+  const [mobileLogoPositionName, setMobileLogoPositionName] = useState("Center");
+
+  const [showTextAddForm, setShowTextAddForm] = useState(false);
+  const [showLogoAddForm, setShowLogoAddForm] = useState(false);
+  const [showMobileLogoAddForm, setShowMobileLogoAddForm] = useState(false);
 
   const [canvasLayers, setCanvasLayers] = useState<any[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
 
   const [hasCoverImage, setHasCoverImage] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -157,14 +176,16 @@ export default function Home() {
     setScreen("configurator");
     setTextStepEnabled(null);
     setStickerStepEnabled(null);
+    setLogoStepEnabled(null);
+    setSelectedObjectType(null);
     if (type === "mobilecase") {
-      setTextPositionPreset("Center");
+      setTextPositionName("Center");
       setTextPositionX(160);
       setTextPositionY(275);
     } else {
-      setTextPositionPreset("Center");
-      setTextPositionX(325);
-      setTextPositionY(250);
+      setTextPositionName("Center Chest");
+      setTextPositionX(165);
+      setTextPositionY(145);
     }
   };
 
@@ -172,6 +193,7 @@ export default function Home() {
     setScreen("select");
     setTextStepEnabled(null);
     setStickerStepEnabled(null);
+    setLogoStepEnabled(null);
   };
 
   const updateLayersList = useCallback(() => {
@@ -209,9 +231,81 @@ export default function Home() {
 
       const canvas = (eng as any).canvas;
       if (canvas) {
-        const events = ["object:added", "object:removed", "object:modified", "selection:created", "selection:updated", "selection:cleared"];
+        const events = ["object:added", "object:removed", "object:modified"];
         events.forEach((evt) => {
           canvas.on(evt, updateLayersList);
+        });
+
+        const syncTextProperties = (obj: any) => {
+          if (!obj) return;
+          setSelectedObjectType(obj.type === "textbox" ? "text" : "image");
+          if (obj.type === "textbox") {
+            setTextFont(obj.fontFamily || "Outfit");
+            setTextColor(obj.fill || "#000000");
+            setTextSize(obj.fontSize || 32);
+            setIsBold(obj.fontWeight === "bold");
+            setIsItalic(obj.fontStyle === "italic");
+            setTextAlignment(obj.textAlign || "center");
+            setTextPositionX(obj.left || 0);
+            setTextPositionY(obj.top || 0);
+          } else {
+            setSelectedImageWidth(Math.round((obj.width * obj.scaleX) * 100) / 100);
+            setSelectedImageHeight(Math.round((obj.height * obj.scaleY) * 100) / 100);
+          }
+        };
+
+        canvas.on("selection:created", (e: any) => {
+          updateLayersList();
+          syncTextProperties(e.selected?.[0] || e.target || null);
+        });
+
+        canvas.on("selection:updated", (e: any) => {
+          updateLayersList();
+          syncTextProperties(e.selected?.[0] || e.target || null);
+        });
+
+        canvas.on("selection:cleared", () => {
+          updateLayersList();
+          setSelectedObjectType(null);
+        });
+
+        canvas.on("mouse:down", (e: any) => {
+          if (e.target) {
+            syncTextProperties(e.target);
+          }
+        });
+
+        canvas.on("object:modified", () => {
+          const obj = canvas.getActiveObject();
+          if (obj) {
+            syncTextProperties(obj);
+            const logoIndex = (obj as any)._logoIndex;
+            if (logoIndex !== undefined) {
+              setProductConfig((prev) => {
+                const elements = [...prev.elements];
+                const el = elements[logoIndex];
+                if (el?.type === "logo" && el.applications[0]) {
+                  const apps = [...el.applications];
+                  apps[0] = { ...apps[0], offsetX: Math.round((obj as any).left * 100) / 100, offsetY: Math.round((obj as any).top * 100) / 100 };
+                  elements[logoIndex] = { ...el, applications: apps } as LogoElement;
+                }
+                return { ...prev, elements };
+              });
+            }
+            const textIndex = (obj as any)._textIndex;
+            if (textIndex !== undefined) {
+              setProductConfig((prev) => {
+                const elements = [...prev.elements];
+                const el = elements[textIndex];
+                if (el?.type === "text" && el.applications[0]) {
+                  const apps = [...el.applications];
+                  apps[0] = { ...apps[0], offsetX: Math.round((obj as any).left * 100) / 100, offsetY: Math.round((obj as any).top * 100) / 100 };
+                  elements[textIndex] = { ...el, applications: apps } as TextElement;
+                }
+                return { ...prev, elements };
+              });
+            }
+          }
         });
       }
 
@@ -273,7 +367,33 @@ export default function Home() {
       fontStyle: isItalic ? "italic" : "normal",
       textAlign: textAlignment,
     });
+    const elementIndex = productConfig.elements.length;
+    const textElement: TextElement = {
+      name: `${textPositionName} Text`,
+      type: "text",
+      applications: [
+        {
+          positionName: textPositionName,
+          appType: "Sublimation",
+          offsetX: textPositionX,
+          offsetY: textPositionY,
+        },
+      ],
+    };
+    setProductConfig((prev) => ({
+      ...prev,
+      elements: [...prev.elements, textElement],
+    }));
+    const canvas = (engineRef.current as any).canvas;
+    if (canvas) {
+      const activeObj = canvas.getActiveObject();
+      if (activeObj) {
+        activeObj._textIndex = elementIndex;
+        activeObj._textPosition = textPositionName;
+      }
+    }
     setTextInput("");
+    setShowTextAddForm(false);
   };
 
   const handleTextPropertyChange = (property: string, value: any) => {
@@ -296,11 +416,22 @@ export default function Home() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
         engineRef.current?.addImage(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        handleAddLogo(event.target.result as string, logoPosition);
       }
     };
     reader.readAsDataURL(file);
@@ -528,11 +659,12 @@ export default function Home() {
     URL.revokeObjectURL(link.href);
   };
 
-  const handleAddLogo = (logoUrl: string, positionName: string) => {
+  const handleAddLogo = async (logoUrl: string, positionName: string) => {
     if (!engineRef.current) return;
-    const coords = LOGO_POSITION_COORDS[positionName] || { left: 265, top: 280 };
+    const coords = LOGO_POSITION_COORDS[positionName] || { left: 325, top: 220 };
+    const elementIndex = productConfig.elements.length;
     const logoElement: LogoElement = {
-      name: `Logo ${productConfig.elements.filter((e) => e.type === "logo").length + 1}`,
+      name: `${positionName} Logo`,
       type: "logo",
       applications: [
         {
@@ -540,8 +672,8 @@ export default function Home() {
           appType: "Sublimation",
           Image: logoUrl,
           ResizedLogo: logoUrl,
-          offsetX: 0,
-          offsetY: 0,
+          offsetX: coords.left,
+          offsetY: coords.top,
           rotationDeg: 0,
         },
       ],
@@ -550,25 +682,78 @@ export default function Home() {
       ...prev,
       elements: [...prev.elements, logoElement],
     }));
-    engineRef.current.addSticker(logoUrl, {
+    const img = await engineRef.current.addSticker(logoUrl, {
       left: coords.left,
       top: coords.top,
       width: logoWidth,
       height: logoHeight,
     });
+    if (img) {
+      (img as any)._logoIndex = elementIndex;
+      (img as any)._logoPosition = positionName;
+    }
+    setShowLogoAddForm(false);
   };
 
-  const handleUpdateLogoOffset = (elementIndex: number, appIndex: number, offsetX: number, offsetY: number) => {
+  const handleAddMobileLogo = async (logoUrl: string, positionName: string) => {
+    if (!engineRef.current) return;
+    const coords = MOBILECASE_TEXT_POSITIONS[positionName] || { left: 160, top: 275 };
+    const elementIndex = productConfig.elements.length;
+    const logoElement: LogoElement = {
+      name: `${positionName} Logo`,
+      type: "logo",
+      applications: [
+        {
+          positionName,
+          appType: "Sublimation",
+          Image: logoUrl,
+          ResizedLogo: logoUrl,
+          offsetX: coords.left,
+          offsetY: coords.top,
+          rotationDeg: 0,
+        },
+      ],
+    };
+    setProductConfig((prev) => ({
+      ...prev,
+      elements: [...prev.elements, logoElement],
+    }));
+    const img = await engineRef.current.addSticker(logoUrl, {
+      left: coords.left,
+      top: coords.top,
+      width: mobileLogoWidth,
+      height: mobileLogoHeight,
+    });
+    if (img) {
+      (img as any)._logoIndex = elementIndex;
+      (img as any)._logoPosition = positionName;
+    }
+    setShowMobileLogoAddForm(false);
+  };
+
+  const handleUpdateLogoOffset = (elementIndex: number, appIndex: number, x: number, y: number) => {
     setProductConfig((prev) => {
       const elements = [...prev.elements];
       const el = elements[elementIndex];
       if (el?.type === "logo" && el.applications[appIndex]) {
         const apps = [...el.applications];
-        apps[appIndex] = { ...apps[appIndex], offsetX, offsetY };
+        apps[appIndex] = { ...apps[appIndex], offsetX: x, offsetY: y };
         elements[elementIndex] = { ...el, applications: apps } as LogoElement;
       }
       return { ...prev, elements };
     });
+    const eng = engineRef.current;
+    if (!eng) return;
+    const canvas = (eng as any).canvas;
+    if (!canvas) return;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if ((obj as any)._logoIndex === elementIndex) {
+        obj.set({ left: x, top: y });
+        break;
+      }
+    }
+    canvas.renderAll();
   };
 
   const handleRemoveElement = (index: number) => {
@@ -576,6 +761,19 @@ export default function Home() {
       ...prev,
       elements: prev.elements.filter((_, i) => i !== index),
     }));
+    const eng = engineRef.current;
+    if (!eng) return;
+    const canvas = (eng as any).canvas;
+    if (!canvas) return;
+    const objects = canvas.getObjects();
+    for (const obj of objects) {
+      if ((obj as any)._logoIndex === index || (obj as any)._textIndex === index) {
+        canvas.remove(obj);
+        break;
+      }
+    }
+    canvas.renderAll();
+    updateLayersList();
   };
 
   const handleDeleteSelected = () => {
@@ -613,6 +811,9 @@ export default function Home() {
   const getMaterialColor = (layerName: string): string => {
     return (productConfig.materials || []).find((m) => m.layerName === layerName)?.colourHex || "";
   };
+
+  const visibleSteps = getVisibleSteps(selectedProduct);
+  const stepLabel = visibleSteps[currentStep];
 
   if (screen === "select") {
     return (
@@ -653,10 +854,10 @@ export default function Home() {
   }
 
   return (
-    <main className="flex-1 flex flex-col md:flex-row h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <main className="flex-1 flex flex-col md:flex-row h-screen max-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
 
-      {/* 1. LEFT WORKSPACE PANEL */}
-      <section className="flex-1 relative flex flex-col items-center justify-between p-6 md:p-8 checkerboard-grid border-b md:border-b-0 md:border-r border-zinc-800">
+      {/* 1. LEFT WORKSPACE PANEL (non-scrollable) */}
+      <section className="flex-1 relative flex flex-col items-center justify-between p-6 md:p-8 checkerboard-grid border-b md:border-b-0 md:border-r border-zinc-800 overflow-hidden">
 
         <div className="w-full flex items-center justify-between z-10">
           <div className="flex items-center gap-4">
@@ -690,14 +891,15 @@ export default function Home() {
                 setTextInput("");
                 setTextStepEnabled(null);
                 setStickerStepEnabled(null);
+                setLogoStepEnabled(null);
                 if (selectedProduct === "mobilecase") {
+                  setTextPositionName("Center");
                   setTextPositionX(160);
                   setTextPositionY(275);
-                  setTextPositionPreset("Center");
                 } else {
-                  setTextPositionX(325);
-                  setTextPositionY(250);
-                  setTextPositionPreset("Center");
+                  setTextPositionName("Center Chest");
+                  setTextPositionX(165);
+                  setTextPositionY(145);
                 }
                 updateLayersList();
               }}
@@ -766,7 +968,7 @@ export default function Home() {
       <section className="w-full md:w-[420px] flex flex-col bg-zinc-900 border-l border-zinc-800">
 
         <div className="flex items-center gap-0 px-6 pt-5 pb-3 bg-zinc-950/50 border-b border-zinc-800">
-          {STEPS.map((label, idx) => (
+          {visibleSteps.map((label, idx) => (
             <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="flex items-center w-full">
                 <div className={`h-0.5 flex-1 ${idx === 0 ? "invisible" : idx <= currentStep ? "bg-blue-500" : "bg-zinc-800"}`} />
@@ -777,17 +979,19 @@ export default function Home() {
                     </svg>
                   ) : idx + 1}
                 </div>
-                <div className={`h-0.5 flex-1 ${idx === STEPS.length - 1 ? "invisible" : idx < currentStep ? "bg-blue-500" : "bg-zinc-800"}`} />
+                <div className={`h-0.5 flex-1 ${idx === visibleSteps.length - 1 ? "invisible" : idx < currentStep ? "bg-blue-500" : "bg-zinc-800"}`} />
               </div>
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${idx === currentStep ? "text-blue-400" : "text-zinc-500"}`}>{label}</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${idx === currentStep ? "text-blue-400" : "text-zinc-500"}`}>
+                {label === "Stickers" && selectedProduct === "mobilecase" ? "Add Logo" : label}
+              </span>
             </div>
           ))}
         </div>
 
         <div className="flex-1 p-6 overflow-y-auto">
 
-          {/* STEP 0: Color */}
-          {currentStep === 0 && (
+          {/* STEP: Color */}
+          {stepLabel === "Color" && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-zinc-400 mb-1">Layer Colors</h3>
@@ -888,8 +1092,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* STEP 1: Text */}
-          {currentStep === 1 && (
+          {/* STEP: Text */}
+          {stepLabel === "Text" && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -922,24 +1126,161 @@ export default function Home() {
 
               {textStepEnabled === true && (
                 <>
+                  {(productConfig.elements.filter((e) => e.type === "text").length === 0 || showTextAddForm) && (
                   <div className="space-y-2">
                     <textarea rows={2} value={textInput} onChange={(e) => setTextInput(e.target.value)}
                       placeholder="Type custom text..."
                       className="w-full px-4 py-3 text-sm font-medium rounded border border-zinc-700 bg-zinc-950 focus:outline-none focus:border-blue-500 text-white placeholder-zinc-500" />
+
+                    {/* Text Position Dropdown */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-zinc-500 font-bold">Position</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.keys(selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : LOGO_POSITION_COORDS).map((pos) => {
+                          const positions = selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : LOGO_POSITION_COORDS;
+                          const p = positions[pos];
+                          return (
+                            <button key={pos} onClick={() => {
+                              setTextPositionName(pos);
+                              setTextPositionX(p.left);
+                              setTextPositionY(p.top);
+                            }}
+                              className={`px-2.5 py-1 rounded text-[10px] font-bold border transition ${
+                                textPositionName === pos
+                                  ? "bg-blue-600 border-blue-500 text-white"
+                                  : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                              }`}
+                            >
+                              {pos}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[9px] font-mono text-zinc-500">X</label>
+                          <input type="number" value={textPositionX}
+                            onChange={(e) => { const v = parseFloat(e.target.value || "0"); setTextPositionX(v); }}
+                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-mono text-zinc-500">Y</label>
+                          <input type="number" value={textPositionY}
+                            onChange={(e) => { const v = parseFloat(e.target.value || "0"); setTextPositionY(v); }}
+                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                        </div>
+                      </div>
+                    </div>
+
                     <button onClick={handleAddText} disabled={!textInput.trim()}
                       className="w-full py-2.5 rounded text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-40 disabled:cursor-not-allowed glow-btn">
                       Place Text on Design
                     </button>
                   </div>
+                  )}
+
+                  {productConfig.elements.filter((e) => e.type === "text").length > 0 && !showTextAddForm && (
+                    <button onClick={() => setShowTextAddForm(true)}
+                      className="w-full py-2.5 rounded text-xs font-bold border border-dashed border-zinc-600 text-zinc-400 hover:border-blue-500 hover:text-blue-400 transition">
+                      + Add Another Text
+                    </button>
+                  )}
+
+                  <div className="h-[1px] bg-zinc-800" />
+
+                  {/* Placed Text */}
+                  {productConfig.elements.filter((e) => e.type === "text").length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Placed Text</h4>
+                      {productConfig.elements.map((el, ei) => {
+                        if (el.type !== "text") return null;
+                        return el.applications.map((app, ai) => (
+                            <div key={`text-${ei}-${ai}`} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${ei === 0 ? "bg-blue-400" : ei === 1 ? "bg-green-400" : ei === 2 ? "bg-purple-400" : "bg-orange-400"}`} />
+                                  <span className="text-xs font-bold text-zinc-100">{app.positionName}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500">{el.name}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                  <label className="text-[9px] font-mono text-zinc-500">X</label>
+                                  <input type="number" value={Number(app.offsetX.toFixed(2))} onChange={(e) => {
+                                    const v = parseFloat(e.target.value || "0");
+                                    setProductConfig((prev) => {
+                                      const elements = [...prev.elements];
+                                      const el2 = elements[ei];
+                                      if (el2?.type === "text" && el2.applications[ai]) {
+                                        const apps = [...el2.applications];
+                                        apps[ai] = { ...apps[ai], offsetX: v };
+                                        elements[ei] = { ...el2, applications: apps } as TextElement;
+                                      }
+                                      return { ...prev, elements };
+                                    });
+                                    const canvas = (engineRef.current as any).canvas;
+                                    if (canvas) {
+                                      const objs = canvas.getObjects();
+                                      for (const o of objs) {
+                                        if ((o as any)._textIndex === ei) {
+                                          o.set({ left: v });
+                                          break;
+                                        }
+                                      }
+                                      canvas.renderAll();
+                                    }
+                                  }}
+                                    className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[9px] font-mono text-zinc-500">Y</label>
+                                  <input type="number" value={Number(app.offsetY.toFixed(2))} onChange={(e) => {
+                                    const v = parseFloat(e.target.value || "0");
+                                    setProductConfig((prev) => {
+                                      const elements = [...prev.elements];
+                                      const el2 = elements[ei];
+                                      if (el2?.type === "text" && el2.applications[ai]) {
+                                        const apps = [...el2.applications];
+                                        apps[ai] = { ...apps[ai], offsetY: v };
+                                        elements[ei] = { ...el2, applications: apps } as TextElement;
+                                      }
+                                      return { ...prev, elements };
+                                    });
+                                    const canvas = (engineRef.current as any).canvas;
+                                    if (canvas) {
+                                      const objs = canvas.getObjects();
+                                      for (const o of objs) {
+                                        if ((o as any)._textIndex === ei) {
+                                          o.set({ top: v });
+                                          break;
+                                        }
+                                      }
+                                      canvas.renderAll();
+                                    }
+                                  }}
+                                    className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                                </div>
+                              </div>
+                              <button onClick={() => handleRemoveElement(ei)}
+                                className="text-[10px] text-red-400 hover:text-red-300 font-bold">
+                                Remove
+                              </button>
+                            </div>
+                        ));
+                      })}
+                    </div>
+                  )}
 
                   <div className="h-[1px] bg-zinc-800" />
 
                   <div className="space-y-4">
-                    <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Select & Style</h4>
+                    {selectedObjectType === "text" ? (
+                      <>
+                        <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Select & Style</h4>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] text-zinc-500 font-bold">Font Family</label>
-                      <select value={textFont} onChange={(e) => handleTextPropertyChange("fontFamily", e.target.value)}
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-zinc-500 font-bold">Font Family</label>
+                          <select value={textFont} onChange={(e) => handleTextPropertyChange("fontFamily", e.target.value)}
                         className="w-full px-3 py-2 text-sm rounded border border-zinc-700 bg-zinc-950 text-zinc-300 focus:outline-none focus:border-blue-500">
                         {FONTS.map((font) => (
                           <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>{font.name}</option>
@@ -968,127 +1309,307 @@ export default function Home() {
                         className="w-full accent-blue-500" />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => handleTextPropertyChange("fontWeight", isBold ? "normal" : "bold")}
                         className={`py-2 rounded text-xs font-extrabold border transition ${isBold ? "bg-zinc-800 border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"}`}>B</button>
                       <button onClick={() => handleTextPropertyChange("fontStyle", isItalic ? "normal" : "italic")}
                         className={`py-2 rounded text-xs italic font-bold border transition ${isItalic ? "bg-zinc-800 border-blue-500 text-blue-400" : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"}`}>I</button>
-                      <div className="flex border border-zinc-700 rounded overflow-hidden">
-                        <button onClick={() => handleTextPropertyChange("textAlign", "left")}
-                          className={`flex-1 py-2 text-[10px] font-bold transition ${textAlignment === "left" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:bg-zinc-800"}`}>L</button>
-                        <button onClick={() => handleTextPropertyChange("textAlign", "center")}
-                          className={`flex-1 py-2 text-[10px] font-bold transition ${textAlignment === "center" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:bg-zinc-800"}`}>C</button>
-                        <button onClick={() => handleTextPropertyChange("textAlign", "right")}
-                          className={`flex-1 py-2 text-[10px] font-bold transition ${textAlignment === "right" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:bg-zinc-800"}`}>R</button>
-                      </div>
                     </div>
 
-                    <div className="h-[1px] bg-zinc-800" />
-
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Position</h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {Object.keys(selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : TEXT_POSITIONS).map((pos) => (
-                          <button
-                            key={pos}
-                            onClick={() => {
-                              const positions = selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : TEXT_POSITIONS;
-                              const p = positions[pos];
-                              setTextPositionPreset(pos);
-                              setTextPositionX(p.left);
-                              setTextPositionY(p.top);
-                              engineRef.current?.updateSelectedText({ left: p.left, top: p.top });
-                            }}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold border transition ${
-                              textPositionPreset === pos
-                                ? "bg-blue-600 border-blue-500 text-white"
-                                : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-                            }`}
-                          >
-                            {pos}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[9px] font-mono text-zinc-500">X (px)</label>
-                          <input type="number" value={textPositionX}
-                            onChange={(e) => { const v = parseFloat(e.target.value || "0"); setTextPositionX(v); setTextPositionPreset(""); engineRef.current?.updateSelectedText({ left: v }); }}
-                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="text-[9px] font-mono text-zinc-500">Y (px)</label>
-                          <input type="number" value={textPositionY}
-                            onChange={(e) => { const v = parseFloat(e.target.value || "0"); setTextPositionY(v); setTextPositionPreset(""); engineRef.current?.updateSelectedText({ top: v }); }}
-                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
-                        </div>
-                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8 border border-zinc-800 border-dashed rounded-xl bg-zinc-950/40">
+                      <span className="text-xs text-zinc-500 block">Click on a text on the design to edit its properties</span>
                     </div>
+                  )}
+                </div>
+              </>
+            )}
+            </div>
+          )}
+
+          {/* STEP: Logo (t-shirt only) */}
+          {stepLabel === "Logo" && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-400 mb-1">Add Logo</h3>
+                  <p className="text-xs text-zinc-500 font-medium">Place a logo on your design</p>
+                </div>
+                {canvasLayers.length > 0 && (
+                  <button onClick={handleDeleteSelected}
+                    className="px-3 py-1.5 rounded text-[10px] font-bold border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950/40 transition">
+                    Delete Selected
+                  </button>
+                )}
+              </div>
+
+              {logoStepEnabled === null && (
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-sm text-zinc-400">Do you want to add a logo?</p>
+                  <div className="flex gap-3 justify-center">
+                    <button onClick={() => setLogoStepEnabled(true)}
+                      className="px-6 py-2.5 rounded text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition glow-btn">
+                      Yes, Add Logo
+                    </button>
+                    <button onClick={() => setCurrentStep((s) => s + 1)}
+                      className="px-6 py-2.5 rounded text-xs font-bold border border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 transition">
+                      No, Skip
+                    </button>
                   </div>
-                </>
+                </div>
               )}
 
-              {selectedProduct === "tshirt" && textStepEnabled === true && (
+              {logoStepEnabled === true && (
                 <>
-                  <div className="h-[1px] bg-zinc-800" />
-                  <div>
-                    <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Add Logo</h4>
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <select id="logo-position" value={logoPosition} onChange={(e) => setLogoPosition(e.target.value)}
-                          className="flex-1 px-3 py-2 text-xs rounded border border-zinc-700 bg-zinc-950 text-zinc-300 focus:outline-none focus:border-blue-500">
-                          {LOGO_POSITIONS.map((pos) => (
-                            <option key={pos} value={pos}>{pos}</option>
-                          ))}
-                        </select>
+                  {(productConfig.elements.filter((e) => e.type === "logo").length === 0 || showLogoAddForm) && (
+                  <>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <select id="logo-position" value={logoPosition} onChange={(e) => setLogoPosition(e.target.value)}
+                        className="flex-1 px-3 py-2 text-xs rounded border border-zinc-700 bg-zinc-950 text-zinc-300 focus:outline-none focus:border-blue-500">
+                        {LOGO_POSITIONS.map((pos) => (
+                          <option key={pos} value={pos}>{pos}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[9px] font-mono text-zinc-500">Width (px)</label>
+                        <input type="number" min={20} max={400} value={logoWidth} onChange={(e) => setLogoWidth(parseFloat(e.target.value || "0"))}
+                          className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[9px] font-mono text-zinc-500">Width (px)</label>
-                          <input type="number" min={20} max={400} value={logoWidth} onChange={(e) => setLogoWidth(parseFloat(e.target.value || "0"))}
-                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="text-[9px] font-mono text-zinc-500">Height (px)</label>
-                          <input type="number" min={20} max={400} value={logoHeight} onChange={(e) => setLogoHeight(parseFloat(e.target.value || "0"))}
-                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
-                        </div>
+                      <div className="flex-1">
+                        <label className="text-[9px] font-mono text-zinc-500">Height (px)</label>
+                        <input type="number" min={20} max={400} value={logoHeight} onChange={(e) => setLogoHeight(parseFloat(e.target.value || "0"))}
+                          className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
                       </div>
-                      {STICKERS.slice(0, 3).map((s) => (
-                        <button key={s.name} onClick={() => handleAddLogo(s.url, logoPosition)}
-                          className="w-full py-2 rounded text-xs font-bold border border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 transition flex items-center gap-2 px-3">
-                          <img src={s.url} alt="" className="w-5 h-5" />
-                          Add {s.name} as Logo
-                        </button>
-                      ))}
-                      <button onClick={() => handleAddLogo(DUMMY_LOGO, logoPosition)}
-                        className="w-full py-2 rounded text-xs font-bold border border-blue-700 bg-blue-950/20 text-blue-300 hover:bg-blue-950/40 transition flex items-center gap-2 px-3">
-                        <img src={DUMMY_LOGO} alt="" className="w-5 h-5 object-contain" />
-                        Add Placeholder Logo
-                      </button>
                     </div>
                   </div>
+                  <div className="h-[1px] bg-zinc-800" />
+
+                  <div>
+                    <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Upload Custom Logo</h4>
+                    <div onClick={() => logoFileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-zinc-700 hover:border-blue-500 rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-zinc-950/40 hover:bg-zinc-950 cursor-pointer transition">
+                      <input type="file" ref={logoFileInputRef} onChange={handleLogoImageUpload} accept="image/*" className="hidden" />
+                      <svg className="w-6 h-6 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span className="text-xs font-bold text-blue-400">Upload PNG, JPG</span>
+                    </div>
+                  </div>
+                  </>
+                  )}
+
+                  {productConfig.elements.filter((e) => e.type === "logo").length > 0 && !showLogoAddForm && (
+                    <button onClick={() => setShowLogoAddForm(true)}
+                      className="w-full py-2.5 rounded text-xs font-bold border border-dashed border-zinc-600 text-zinc-400 hover:border-blue-500 hover:text-blue-400 transition">
+                      + Add Another Logo
+                    </button>
+                  )}
+
+                  <div className="h-[1px] bg-zinc-800" />
 
                   {productConfig.elements.filter((e) => e.type === "logo").length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Logo Offsets</h4>
+                      <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Placed Logos</h4>
                       {productConfig.elements.map((el, ei) => {
                         if (el.type !== "logo") return null;
                         return el.applications.map((app, ai) => (
                           <div key={`${ei}-${ai}`} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-zinc-300">{el.name}</span>
-                              <span className="text-[10px] text-zinc-500">{app.positionName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${ei === 0 ? "bg-blue-400" : ei === 1 ? "bg-green-400" : ei === 2 ? "bg-purple-400" : "bg-orange-400"}`} />
+                                <span className="text-xs font-bold text-zinc-100">{app.positionName}</span>
+                              </div>
+                              <span className="text-[10px] text-zinc-500">{el.name}</span>
                             </div>
                             <div className="flex gap-2">
                               <div className="flex-1">
-                                <label className="text-[9px] font-mono text-zinc-500">X Offset</label>
-                                <input type="number" value={app.offsetX} onChange={(e) => handleUpdateLogoOffset(ei, ai, parseFloat(e.target.value || "0"), app.offsetY)}
+                                <label className="text-[9px] font-mono text-zinc-500">X</label>
+                                <input type="number" value={Number(app.offsetX.toFixed(2))} onChange={(e) => {
+                                  const v = parseFloat(e.target.value || "0");
+                                  handleUpdateLogoOffset(ei, ai, v, app.offsetY);
+                                }}
                                   className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
                               </div>
                               <div className="flex-1">
-                                <label className="text-[9px] font-mono text-zinc-500">Y Offset</label>
-                                <input type="number" value={app.offsetY} onChange={(e) => handleUpdateLogoOffset(ei, ai, app.offsetX, parseFloat(e.target.value || "0"))}
+                                <label className="text-[9px] font-mono text-zinc-500">Y</label>
+                                <input type="number" value={Number(app.offsetY.toFixed(2))} onChange={(e) => {
+                                  const v = parseFloat(e.target.value || "0");
+                                  handleUpdateLogoOffset(ei, ai, app.offsetX, v);
+                                }}
+                                  className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                              </div>
+                            </div>
+                            <button onClick={() => handleRemoveElement(ei)}
+                              className="text-[10px] text-red-400 hover:text-red-300 font-bold">
+                              Remove
+                            </button>
+                          </div>
+                        ));
+                      })}
+                    </div>
+                  )}
+
+                  {selectedObjectType === "image" && (
+                    <div className="space-y-2 p-3 rounded-lg border border-zinc-800 bg-zinc-950/60">
+                      <h4 className="text-[10px] font-mono font-bold uppercase text-zinc-500">Selected Image</h4>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[9px] font-mono text-zinc-500">Width</label>
+                          <input type="number" min={10} max={500} value={selectedImageWidth || ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value || "0");
+                              if (v > 0) {
+                                engineRef.current?.updateSelectedSticker({ width: v });
+                                setSelectedImageWidth(v);
+                              }
+                            }}
+                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-mono text-zinc-500">Height</label>
+                          <input type="number" min={10} max={500} value={selectedImageHeight || ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value || "0");
+                              if (v > 0) {
+                                engineRef.current?.updateSelectedSticker({ height: v });
+                                setSelectedImageHeight(v);
+                              }
+                            }}
+                            className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* STEP: Stickers (Add Logo for mobile case) */}
+          {stepLabel === "Stickers" && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-400 mb-1">Add Logo</h3>
+                  <p className="text-xs text-zinc-500">Upload an image for your mobile case</p>
+                </div>
+                {canvasLayers.length > 0 && (
+                  <button onClick={handleDeleteSelected}
+                    className="px-3 py-1.5 rounded text-[10px] font-bold border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950/40 transition">
+                    Delete Selected
+                  </button>
+                )}
+              </div>
+
+              {stickerStepEnabled === null && (
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-sm text-zinc-400">Do you want to add a logo?</p>
+                  <div className="flex gap-3 justify-center">
+                    <button onClick={() => setStickerStepEnabled(true)}
+                      className="px-6 py-2.5 rounded text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition glow-btn">
+                      Yes, Add Logo
+                    </button>
+                    <button onClick={() => setCurrentStep((s) => s + 1)}
+                      className="px-6 py-2.5 rounded text-xs font-bold border border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 transition">
+                      No, Skip
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {stickerStepEnabled === true && (
+                <>
+                  {(productConfig.elements.filter((e) => e.type === "logo").length === 0 || showMobileLogoAddForm) && (
+                  <>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <select value={mobileLogoPositionName} onChange={(e) => setMobileLogoPositionName(e.target.value)}
+                        className="flex-1 px-3 py-2 text-xs rounded border border-zinc-700 bg-zinc-950 text-zinc-300 focus:outline-none focus:border-blue-500">
+                        {Object.keys(MOBILECASE_TEXT_POSITIONS).map((pos) => (
+                          <option key={pos} value={pos}>{pos}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[9px] font-mono text-zinc-500">Width (px)</label>
+                        <input type="number" min={20} max={400} value={mobileLogoWidth} onChange={(e) => setMobileLogoWidth(parseFloat(e.target.value || "0"))}
+                          className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[9px] font-mono text-zinc-500">Height (px)</label>
+                        <input type="number" min={20} max={400} value={mobileLogoHeight} onChange={(e) => setMobileLogoHeight(parseFloat(e.target.value || "0"))}
+                          className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="h-[1px] bg-zinc-800" />
+
+                  <div>
+                    <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Upload Logo Image</h4>
+                    <div onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-zinc-700 hover:border-blue-500 rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-zinc-950/40 hover:bg-zinc-950 cursor-pointer transition">
+                      <input type="file" ref={fileInputRef} onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            handleAddMobileLogo(event.target.result as string, mobileLogoPositionName);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }} accept="image/*" className="hidden" />
+                      <svg className="w-6 h-6 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      <span className="text-xs font-bold text-blue-400">Upload PNG, JPG</span>
+                    </div>
+                  </div>
+                  </>
+                  )}
+
+                  {productConfig.elements.filter((e) => e.type === "logo").length > 0 && !showMobileLogoAddForm && (
+                    <button onClick={() => setShowMobileLogoAddForm(true)}
+                      className="w-full py-2.5 rounded text-xs font-bold border border-dashed border-zinc-600 text-zinc-400 hover:border-blue-500 hover:text-blue-400 transition">
+                      + Add Another Logo
+                    </button>
+                  )}
+
+                  <div className="h-[1px] bg-zinc-800" />
+
+                  {productConfig.elements.filter((e) => e.type === "logo").length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Placed Logos</h4>
+                      {productConfig.elements.map((el, ei) => {
+                        if (el.type !== "logo") return null;
+                        return el.applications.map((app, ai) => (
+                          <div key={`${ei}-${ai}`} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-zinc-100">{app.positionName}</span>
+                              <span className="text-[10px] text-zinc-500">{el.name}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="text-[9px] font-mono text-zinc-500">X</label>
+                                <input type="number" value={Number(app.offsetX.toFixed(2))} onChange={(e) => {
+                                  const v = parseFloat(e.target.value || "0");
+                                  handleUpdateLogoOffset(ei, ai, v, app.offsetY);
+                                }}
+                                  className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-[9px] font-mono text-zinc-500">Y</label>
+                                <input type="number" value={Number(app.offsetY.toFixed(2))} onChange={(e) => {
+                                  const v = parseFloat(e.target.value || "0");
+                                  handleUpdateLogoOffset(ei, ai, app.offsetX, v);
+                                }}
                                   className="w-full px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 font-mono" />
                               </div>
                             </div>
@@ -1106,70 +1627,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* STEP 2: Stickers */}
-          {currentStep === 2 && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-400 mb-1">Stickers & Uploads</h3>
-                  <p className="text-xs text-zinc-500">Add decals or your own images</p>
-                </div>
-                {canvasLayers.length > 0 && (
-                  <button onClick={handleDeleteSelected}
-                    className="px-3 py-1.5 rounded text-[10px] font-bold border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950/40 transition">
-                    Delete Selected
-                  </button>
-                )}
-              </div>
-
-              {stickerStepEnabled === null && (
-                <div className="text-center py-8 space-y-4">
-                  <p className="text-sm text-zinc-400">Do you want to add stickers or custom images?</p>
-                  <div className="flex gap-3 justify-center">
-                    <button onClick={() => setStickerStepEnabled(true)}
-                      className="px-6 py-2.5 rounded text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition glow-btn">
-                      Yes, Add Stickers
-                    </button>
-                    <button onClick={() => setCurrentStep((s) => s + 1)}
-                      className="px-6 py-2.5 rounded text-xs font-bold border border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 transition">
-                      No, Skip
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {stickerStepEnabled === true && (
-                <>
-                  <div className="grid grid-cols-3 gap-3">
-                    {STICKERS.map((sticker) => (
-                      <button key={sticker.name} onClick={() => handleAddSticker(sticker.url)}
-                        className="aspect-square flex items-center justify-center p-3.5 bg-zinc-950 border border-zinc-800 rounded-lg hover:border-blue-500 hover:bg-zinc-900 transition-all duration-300 relative group overflow-hidden">
-                        <img src={sticker.url} alt={sticker.name} className="w-full h-full object-contain group-hover:scale-110 transition duration-300" />
-                        <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-[8px] font-mono text-center text-zinc-400 opacity-0 group-hover:opacity-100 transition">Add</div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="h-[1px] bg-zinc-800" />
-
-                  <div>
-                    <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Upload Your Image</h4>
-                    <div onClick={() => fileInputRef.current?.click()}
-                      className="w-full border-2 border-dashed border-zinc-700 hover:border-blue-500 rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-zinc-950/40 hover:bg-zinc-950 cursor-pointer transition">
-                      <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                      <svg className="w-6 h-6 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                      </svg>
-                      <span className="text-xs font-bold text-blue-400">Upload PNG, JPG</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* STEP 3: Review */}
-          {currentStep === 3 && (
+          {/* STEP: Review */}
+          {stepLabel === "Review" && (
             <div className="space-y-5">
               <div>
                 <h3 className="text-sm font-semibold text-zinc-400 mb-1">Review Your Design</h3>
@@ -1260,9 +1719,20 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            {currentStep < STEPS.length - 1 ? (
-              <button onClick={() => setCurrentStep((s) => s + 1)}
-                className="px-6 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition glow-btn">Next Step</button>
+            {currentStep < visibleSteps.length - 1 ? (
+              <button onClick={() => {
+                const onColorStep = visibleSteps[currentStep] === "Color";
+                const allFilled = onColorStep
+                  ? (productConfig.materials ?? []).every((m) => m.colourHex && m.colourHex.trim() !== "")
+                  : true;
+                if (!allFilled) return;
+                setCurrentStep((s) => s + 1);
+              }}
+                className={`px-6 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  visibleSteps[currentStep] === "Color" && !(productConfig.materials ?? []).every((m) => m.colourHex && m.colourHex.trim() !== "")
+                    ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-500 text-white glow-btn"
+                }`}>Next Step</button>
             ) : (
               <button onClick={() => setCurrentStep(0)}
                 className="px-5 py-2 rounded-lg text-xs font-bold border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition">Start Over</button>
