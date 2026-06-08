@@ -47,14 +47,10 @@ export class ConfiguratorEngine {
     if (!this.canvas || !this.container) return;
 
     const rect = this.container.getBoundingClientRect();
-    const width = rect.width || 500;
-    const height = rect.height || 700;
+    const width = Math.round(rect.width) || 500;
+    const height = Math.round(rect.height) || 700;
 
-    this.canvas.setDimensions(
-      { width: Math.round(width), height: Math.round(height) },
-      { backstoreOnly: true }
-    );
-
+    this.canvas.setDimensions({ width, height });
     this.canvas.renderAll();
   };
 
@@ -64,12 +60,16 @@ export class ConfiguratorEngine {
 
     const { left: _l, top: _t, ...styleOptions } = options;
 
+    const fontSize = styleOptions.fontSize || 32;
+    const charWidth = fontSize * 0.6;
+    const tightWidth = Math.max(text.length * charWidth + 20, 50);
+
     const textObject = new Textbox(text, {
       left: _l ?? canvasWidth / 2 - 100,
       top: _t ?? canvasHeight / 2 - 25,
-      width: 200,
+      width: tightWidth,
       fontFamily: styleOptions.fontFamily || "Outfit",
-      fontSize: styleOptions.fontSize || 32,
+      fontSize,
       fill: styleOptions.fill || "#000000",
       textAlign: styleOptions.textAlign || "center",
       fontWeight: styleOptions.fontWeight || "normal",
@@ -93,17 +93,26 @@ export class ConfiguratorEngine {
     if (activeObject && activeObject instanceof Textbox) {
       activeObject.set(options);
       this.canvas.renderAll();
+      if (options.left !== undefined || options.top !== undefined) {
+        this.canvas.fire("object:modified", { target: activeObject });
+      }
     }
   }
 
-  public async addSticker(url: string, options: any = {}) {
+  public async addSticker(url: string, options: any = {}): Promise<FabricImage | null> {
     try {
       const canvasWidth = this.canvas.getWidth();
       const canvasHeight = this.canvas.getHeight();
 
+      const crossOrigin = url.startsWith("data:") ? undefined : "anonymous";
       const img = await FabricImage.fromURL(url, {
-        crossOrigin: "anonymous",
+        ...(crossOrigin ? { crossOrigin } : {}),
       });
+
+      if (!img.width || !img.height) {
+        console.error("Image has zero dimensions");
+        return null;
+      }
 
       const targetWidth = options.width || 120;
       const targetHeight = options.height || (targetWidth * img.height) / img.width;
@@ -133,9 +142,81 @@ export class ConfiguratorEngine {
       this.canvas.add(img);
       this.canvas.setActiveObject(img);
       this.canvas.renderAll();
+      return img;
     } catch (error) {
       console.error("Failed to load sticker:", error);
+      return null;
     }
+  }
+
+  public updateSelectedSticker(options: any) {
+    const activeObject = this.canvas.getActiveObject();
+    if (!activeObject || activeObject instanceof Textbox) return;
+
+    if (options.scaleX !== undefined || options.scaleY !== undefined) {
+      activeObject.set({
+        scaleX: options.scaleX,
+        scaleY: options.scaleY,
+      });
+    }
+    if (options.left !== undefined) activeObject.set({ left: options.left });
+    if (options.top !== undefined) activeObject.set({ top: options.top });
+    if (options.width) {
+      const naturalWidth = (activeObject as any).width;
+      const currentWidth = naturalWidth * (activeObject as any).scaleX;
+      if (currentWidth > 0) {
+        const factor = options.width / currentWidth;
+        activeObject.set({
+          scaleX: (activeObject as any).scaleX * factor,
+          scaleY: (activeObject as any).scaleY * factor,
+        });
+      }
+    }
+    if (options.height) {
+      const naturalHeight = (activeObject as any).height;
+      const currentHeight = naturalHeight * (activeObject as any).scaleY;
+      if (currentHeight > 0) {
+        const factor = options.height / currentHeight;
+        activeObject.set({
+          scaleY: (activeObject as any).scaleY * factor,
+          scaleX: (activeObject as any).scaleX * factor,
+        });
+      }
+    }
+
+    this.canvas.renderAll();
+  }
+
+  public getActiveObjectType(): string | null {
+    const obj = this.canvas.getActiveObject();
+    if (!obj) return null;
+    if (obj instanceof Textbox) return "textbox";
+    return "image";
+  }
+
+  public getActiveObjectProperties(): Record<string, any> | null {
+    const obj = this.canvas.getActiveObject();
+    if (!obj) return null;
+    return {
+      left: obj.left,
+      top: obj.top,
+      type: obj.type,
+      ...(obj instanceof Textbox
+        ? {
+            fontFamily: obj.fontFamily,
+            fill: obj.fill,
+            fontSize: obj.fontSize,
+            fontWeight: obj.fontWeight,
+            fontStyle: obj.fontStyle,
+            textAlign: obj.textAlign,
+          }
+        : {
+            width: (obj as any).width * (obj as any).scaleX,
+            height: (obj as any).height * (obj as any).scaleY,
+            scaleX: (obj as any).scaleX,
+            scaleY: (obj as any).scaleY,
+          }),
+    };
   }
 
   public async addImage(url: string) {
@@ -270,8 +351,9 @@ export class ConfiguratorEngine {
 
   public async setClipPath(imageUrl: string) {
     try {
+      const isDataUri = imageUrl.startsWith("data:");
       const img = await FabricImage.fromURL(imageUrl, {
-        crossOrigin: "anonymous",
+        ...(isDataUri ? {} : { crossOrigin: "anonymous" }),
       });
 
       const canvasWidth = this.canvas.getWidth();
@@ -294,7 +376,6 @@ export class ConfiguratorEngine {
         selectable: false,
         evented: false,
         hoverCursor: "default",
-        absolutePositioned: true,
       });
 
       this.canvas.clipPath = img;

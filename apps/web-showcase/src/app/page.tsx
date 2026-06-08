@@ -1,10 +1,12 @@
 "use client";
 
+import NextImage from "next/image";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { ConfiguratorEngine } from "@configurator/core";
 import type { ProductConfig, ProductType, MaterialLayer, LogoElement, LogoApplication, TextElement, TextApplication, ProductElement } from "@configurator/core";
-import { DEFAULT_TSHIRT_CONFIG, DEFAULT_MOBILECASE_CONFIG } from "@configurator/core";
-import TshirtPreview from "@/components/JerseyPreview";
+import { DEFAULT_TSHIRT_CONFIG, DEFAULT_HALF_SLEEVE_TSHIRT_CONFIG, DEFAULT_SLEEVELESS_TSHIRT_CONFIG, DEFAULT_BAG_CONFIG, DEFAULT_MOBILECASE_CONFIG } from "@configurator/core";
+import TshirtPreview, { TSHIRT_LAYER_PRESETS, type TshirtVariant } from "@/components/JerseyPreview";
+import BagPreview, { BAG_LAYER_PRESETS } from "@/components/BagPreview";
 import MobileCasePreview from "@/components/MobileCasePreview";
 import ConfiguratorViewer from "@/components/ConfiguratorViewer";
 
@@ -83,7 +85,7 @@ const FONTS = [
 const ALL_STEPS = ["Color", "Text", "Logo", "Stickers", "Review"] as const;
 
 function getVisibleSteps(productType: ProductType): readonly string[] {
-  if (productType === "tshirt") return ALL_STEPS.filter((s) => s !== "Stickers");
+  if (productType === "tshirt" || productType === "bag") return ALL_STEPS.filter((s) => s !== "Stickers");
   return ALL_STEPS.filter((s) => s !== "Logo");
 }
 
@@ -94,8 +96,8 @@ const LOGO_POSITIONS = [
   "Right Breast",
   "Center Chest",
   "Reverse",
-  "Left Sleeve",
-  "Right Sleeve",
+  // "Left Sleeve",
+  // "Right Sleeve",
 ];
 
 const LOGO_POSITION_COORDS: Record<string, { left: number; top: number }> = {
@@ -123,7 +125,7 @@ const MOBILECASE_TEXT_POSITIONS: Record<string, { left: number; top: number }> =
 
 export default function Home() {
   const engineRef = useRef<ConfiguratorEngine | null>(null);
-  const [screen, setScreen] = useState<"select" | "configurator">("select");
+  const [screen, setScreen] = useState<"select" | "tshirtVariant" | "configurator">("select");
   const [activeView, setActiveView] = useState<"back" | "front">("back");
   const [currentStep, setCurrentStep] = useState<number>(0);
 
@@ -169,8 +171,23 @@ export default function Home() {
   const [hasCoverImage, setHasCoverImage] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
 
-  const handleSelectProduct = (type: ProductType) => {
-    const config = type === "tshirt" ? DEFAULT_TSHIRT_CONFIG : DEFAULT_MOBILECASE_CONFIG;
+  const getTshirtVariant = (config: ProductConfig = productConfig): TshirtVariant =>
+    config.product.productType === "tshirt" && config.product.sleeveLength === "Half Sleeve"
+      ? "half-sleeves"
+      : config.product.sleeveLength === "Sleeveless"
+        ? "sleevless"
+        : "full-sleeves";
+
+  const handleSelectProduct = (type: ProductType, tshirtVariant: TshirtVariant = "full-sleeves") => {
+    const config = type === "tshirt"
+      ? tshirtVariant === "half-sleeves"
+        ? DEFAULT_HALF_SLEEVE_TSHIRT_CONFIG
+        : tshirtVariant === "sleevless"
+          ? DEFAULT_SLEEVELESS_TSHIRT_CONFIG
+          : DEFAULT_TSHIRT_CONFIG
+      : type === "bag"
+        ? DEFAULT_BAG_CONFIG
+        : DEFAULT_MOBILECASE_CONFIG;
     setProductConfig(JSON.parse(JSON.stringify(config)));
     setCurrentStep(0);
     setScreen("configurator");
@@ -188,6 +205,8 @@ export default function Home() {
       setTextPositionY(145);
     }
   };
+
+  const tshirtVariant = getTshirtVariant();
 
   const handleBackToHome = () => {
     setScreen("select");
@@ -310,19 +329,23 @@ export default function Home() {
       }
 
       if (selectedProduct === "tshirt") {
-        eng.setClipPath("/products/tshirt/01---Body.png");
+        eng.setClipPath(TSHIRT_LAYER_PRESETS[tshirtVariant].clipPath);
+      } else if (selectedProduct === "bag") {
+        eng.setClipPath(BAG_LAYER_PRESETS.clipPath);
       } else if (selectedProduct === "mobilecase" && activeView === "back") {
         eng.setClipPath("/products/phone-cover/back-full-color.png");
       }
     },
-    [updateLayersList, selectedProduct, activeView]
+    [updateLayersList, selectedProduct, activeView, tshirtVariant]
   );
 
   useEffect(() => {
     const eng = engineRef.current;
     if (!eng) return;
     if (selectedProduct === "tshirt") {
-      eng.setClipPath("/products/tshirt/01---Body.png");
+      eng.setClipPath(TSHIRT_LAYER_PRESETS[tshirtVariant].clipPath);
+    } else if (selectedProduct === "bag") {
+      eng.setClipPath(BAG_LAYER_PRESETS.clipPath);
     } else if (selectedProduct === "mobilecase") {
       if (activeView === "back") {
         eng.setClipPath("/products/phone-cover/back-full-color.png");
@@ -332,7 +355,7 @@ export default function Home() {
     } else {
       eng.removeClipPath();
     }
-  }, [selectedProduct, activeView]);
+  }, [selectedProduct, activeView, tshirtVariant]);
 
   useEffect(() => {
     return () => {
@@ -490,39 +513,18 @@ export default function Home() {
       offscreen.height = H;
       const ctx = offscreen.getContext("2d")!;
 
-      const LAYER_ORDER = [
-        "Body", "Body Stripe", "Left Set Sleeve",
-        "Right Set Sleeve", "Collar", "Number Panel", "Zapkam", "Zk",
-      ];
+      const preset = TSHIRT_LAYER_PRESETS[tshirtVariant];
 
-      const LAYER_IMAGES: Record<string, string> = {
-        "Body": "/products/tshirt/01---Body.png",
-        "Body Stripe": "/products/tshirt/02---Body-Stripe-.png",
-        "Number Panel": "/products/tshirt/03---Number-Panel.png",
-        "Right Set Sleeve": "/products/tshirt/04---Right-Set-Sleeve.png",
-        "Left Set Sleeve": "/products/tshirt/05---Left-Set-Sleeve.png",
-        "Collar": "/products/tshirt/06---Round-Neck.png",
-        "Zapkam": "/products/tshirt/07---Zapkam.png",
-        "Zk": "/products/tshirt/08---ZK.png",
-      };
-
-      const ALIAS = (n: string) =>
-        n === "Left Set Sleeve" || n === "Right Set Sleeve" ? "Set Sleeve" : n;
-
-      const EXPORT_COLOR_SOURCE: Record<string, string> = {
-        "Body Stripe": "Body",
-        "Number Panel": "Body",
-      };
-
-      for (const name of LAYER_ORDER) {
-        const src = LAYER_IMAGES[name];
+      for (const name of preset.order) {
+        const src = preset.images[name];
         if (!src) continue;
 
-        const mat = mats.find((m) => m.layerName === ALIAS(name));
+        const matKey = preset.materialAlias?.[name] || name;
+        const mat = mats.find((m) => m.layerName === matKey);
         let color = "";
 
-        if (EXPORT_COLOR_SOURCE[name]) {
-          const sourceMat = mats.find((m) => m.layerName === EXPORT_COLOR_SOURCE[name]);
+        if (preset.colorSource?.[name]) {
+          const sourceMat = mats.find((m) => m.layerName === preset.colorSource?.[name]);
           if (sourceMat?.colourHex) color = sourceMat.colourHex;
         } else if (mat?.colourHex) {
           color = mat.colourHex;
@@ -551,6 +553,50 @@ export default function Home() {
       const dataUrl = offscreen.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = `custom-jersey-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    } else if (selectedProduct === "bag") {
+      const W = 650;
+      const H = 433;
+      const mats = productConfig.materials || [];
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = W;
+      offscreen.height = H;
+      const ctx = offscreen.getContext("2d")!;
+
+      const preset = BAG_LAYER_PRESETS;
+
+      for (const name of preset.order) {
+        const src = preset.images[name];
+        if (!src) continue;
+
+        const mat = mats.find((m) => m.layerName === name);
+        const color = mat?.colourHex || "";
+
+        const img = await loadImage(src);
+
+        if (color) {
+          const temp = document.createElement("canvas");
+          temp.width = W;
+          temp.height = H;
+          const tctx = temp.getContext("2d")!;
+          tctx.drawImage(img, 0, 0, W, H);
+          tctx.globalCompositeOperation = "source-in";
+          tctx.fillStyle = color;
+          tctx.fillRect(0, 0, W, H);
+          ctx.drawImage(temp, 0, 0);
+        } else {
+          ctx.drawImage(img, 0, 0, W, H);
+        }
+      }
+
+      const fabricEl = (eng as any).canvasElement as HTMLCanvasElement;
+      ctx.drawImage(fabricEl, 0, 0, W, H);
+
+      const dataUrl = offscreen.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `custom-bag-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
     } else if (selectedProduct === "mobilecase") {
@@ -825,27 +871,109 @@ export default function Home() {
             <p className="text-zinc-400 text-sm">Select a product to start customizing</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button onClick={() => handleSelectProduct("tshirt")}
-              className="group relative bg-zinc-900 border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-8 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <button onClick={() => setScreen("tshirtVariant")}
+              className="group relative bg-zinc-900 cursor-pointer border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-8 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10">
               <div className="w-20 h-20 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                <svg className="w-10 h-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+                <svg className="w-10 h-10 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M320.2 176C364.4 176 400.2 140.2 400.2 96L453.7 96C470.7 96 487 102.7 499 114.7L617.6 233.4C630.1 245.9 630.1 266.2 617.6 278.7L566.9 329.4C554.4 341.9 534.1 341.9 521.6 329.4L480.2 288L480.2 512C480.2 547.3 451.5 576 416.2 576L224.2 576C188.9 576 160.2 547.3 160.2 512L160.2 288L118.8 329.4C106.3 341.9 86 341.9 73.5 329.4L22.9 278.6C10.4 266.1 10.4 245.8 22.9 233.3L141.5 114.7C153.5 102.7 169.8 96 186.8 96L240.3 96C240.3 140.2 276.1 176 320.3 176z" fill="#3379ff"/></svg>
               </div>
               <h2 className="text-xl font-bold text-white mb-2">T-Shirt / Jersey</h2>
               <p className="text-sm text-zinc-400 leading-relaxed">Customize your jersey with layer colors, text, stickers, and logos</p>
             </button>
 
-            <button onClick={() => handleSelectProduct("mobilecase")}
-              className="group relative bg-zinc-900 border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-8 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10">
+            <button onClick={() => handleSelectProduct("bag")}
+              className="group relative bg-zinc-900 cursor-pointer border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-8 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10">
               <div className="w-20 h-20 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
-                <svg className="w-10 h-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
+                <svg className="w-10 h-10 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M192 96C192 42.98 234.1 0 288 0H352C405 0 448 42.98 448 96V128H480C524.8 128 564.1 159.5 577.5 202.5L625.5 362.5C633.8 389.1 638 416.9 638 445.1C638 531.2 567.2 602 481.1 602H158.9C72.8 602 2 531.2 2 445.1C2 416.9 6.2 389.1 14.5 362.5L62.5 202.5C75.9 159.5 115.2 128 160 128H192V96zM256 96V128H384V96C384 78.33 369.7 64 352 64H288C270.3 64 256 78.33 256 96zM160 192C142.3 192 128 206.3 128 224C128 241.7 142.3 256 160 256C177.7 256 192 241.7 192 224C192 206.3 177.7 192 160 192zM480 192C462.3 192 448 206.3 448 224C448 241.7 462.3 256 480 256C497.7 256 512 241.7 512 224C512 206.3 497.7 192 480 192z" fill="#3379ff"/></svg>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Bag</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed">Customize your bag with layer colors, text, and logos</p>
+            </button>
+
+            <button onClick={() => handleSelectProduct("mobilecase")}
+              className="group relative bg-zinc-900 cursor-pointer border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-8 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10">
+              <div className="w-20 h-20 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-10 h-10 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M208 64C172.7 64 144 92.7 144 128L144 512C144 547.3 172.7 576 208 576L432 576C467.3 576 496 547.3 496 512L496 128C496 92.7 467.3 64 432 64L208 64zM280 480L360 480C373.3 480 384 490.7 384 504C384 517.3 373.3 528 360 528L280 528C266.7 528 256 517.3 256 504C256 490.7 266.7 480 280 480z" fill="#3379ff"/></svg>
               </div>
               <h2 className="text-xl font-bold text-white mb-2">Mobile Case</h2>
               <p className="text-sm text-zinc-400 leading-relaxed">Design your phone case with colors, text, and stickers</p>
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (screen === "tshirtVariant") {
+    return (
+      <main className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-100">
+        <div className="max-w-4xl w-full px-6">
+          <button
+            onClick={() => setScreen("select")}
+            className="mb-8 text-zinc-500 hover:text-zinc-300 transition flex items-center gap-2 text-sm font-semibold"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to products
+          </button>
+
+          <div className="text-center mb-10">
+            <span className="text-xs uppercase tracking-widest text-blue-400 font-semibold font-mono">T-Shirt / Jersey</span>
+            <h1 className="text-4xl font-black text-white mt-3 mb-3">Choose Sleeve Style</h1>
+            <p className="text-zinc-400 text-sm">Select the jersey structure before customizing layers</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <button
+              onClick={() => handleSelectProduct("tshirt", "full-sleeves")}
+              className="group relative bg-zinc-900 border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-6 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10"
+            >
+              <div className="relative h-48 mb-5 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden">
+                <NextImage
+                  src="/products/tshirt/01---Body.png"
+                  alt="Full sleeve jersey"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="object-contain p-4"
+                />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Full Sleeves</h2>
+              
+            </button>
+
+            <button
+              onClick={() => handleSelectProduct("tshirt", "half-sleeves")}
+              className="group relative bg-zinc-900 border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-6 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10"
+            >
+              <div className="relative h-48 mb-5 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden">
+                <NextImage
+                  src="/products/tshirt/half-sleeves/01---Body.png"
+                  alt="Half sleeve jersey"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="object-contain p-4"
+                />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Half Sleeves</h2>
+              
+            </button>
+
+            <button
+              onClick={() => handleSelectProduct("tshirt", "sleevless")}
+              className="group relative bg-zinc-900 border-2 border-zinc-800 hover:border-blue-500 rounded-2xl p-6 transition-all duration-300 text-left hover:bg-zinc-800/60 hover:shadow-xl hover:shadow-blue-500/10"
+            >
+              <div className="relative h-48 mb-5 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden">
+                <NextImage
+                  src="/products/tshirt/sleevless/01-Body.png"
+                  alt="Sleeveless jersey"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="object-contain p-4"
+                />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Sleeveless</h2>
+              
             </button>
           </div>
         </div>
@@ -921,6 +1049,11 @@ export default function Home() {
             {selectedProduct === "tshirt" ? (
               <TshirtPreview
                 materials={productConfig.materials || []}
+                variant={tshirtVariant}
+              />
+            ) : selectedProduct === "bag" ? (
+              <BagPreview
+                materials={productConfig.materials || []}
               />
             ) : (
               <MobileCasePreview
@@ -951,7 +1084,7 @@ export default function Home() {
               <button onClick={() => setActiveView("front")}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${activeView === "front" ? "bg-blue-600 text-white shadow-md" : "text-zinc-400 hover:text-zinc-200"}`}>Front Glass</button>
             </div>
-            <div className="h-4 w-[1px] bg-zinc-800" />
+            <div className="h-4 w-px bg-zinc-800" />
             <button onClick={handle360Rotate} disabled={isRotating}
               className={`flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold border border-zinc-700 bg-zinc-950 hover:bg-zinc-800 text-zinc-300 transition glow-btn ${isRotating ? "opacity-50 cursor-not-allowed" : ""}`}>
               <svg className={`w-3.5 h-3.5 text-blue-400 ${isRotating ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -965,7 +1098,7 @@ export default function Home() {
       </section>
 
       {/* 2. RIGHT CONFIGURATOR CONTROL PANEL */}
-      <section className="w-full md:w-[420px] flex flex-col bg-zinc-900 border-l border-zinc-800">
+      <section className="w-full md:w-105 flex flex-col bg-zinc-900 border-l border-zinc-800">
 
         <div className="flex items-center gap-0 px-6 pt-5 pb-3 bg-zinc-950/50 border-b border-zinc-800">
           {visibleSteps.map((label, idx) => (
@@ -1057,7 +1190,7 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
                 </div>
                 </div>
               )}
@@ -1087,7 +1220,7 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="h-[1px] bg-zinc-800" />
+              <div className="h-px bg-zinc-800" />
 
             </div>
           )}
@@ -1136,7 +1269,7 @@ export default function Home() {
                     <div className="space-y-1">
                       <label className="text-[11px] text-zinc-500 font-bold">Position</label>
                       <div className="flex flex-wrap gap-1.5">
-                        {Object.keys(selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : LOGO_POSITION_COORDS).map((pos) => {
+                        {(selectedProduct === "mobilecase" ? Object.keys(MOBILECASE_TEXT_POSITIONS) : LOGO_POSITIONS).map((pos) => {
                           const positions = selectedProduct === "mobilecase" ? MOBILECASE_TEXT_POSITIONS : LOGO_POSITION_COORDS;
                           const p = positions[pos];
                           return (
@@ -1186,7 +1319,7 @@ export default function Home() {
                     </button>
                   )}
 
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   {/* Placed Text */}
                   {productConfig.elements.filter((e) => e.type === "text").length > 0 && (
@@ -1271,7 +1404,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   <div className="space-y-4">
                     {selectedObjectType === "text" ? (
@@ -1386,7 +1519,7 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   <div>
                     <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Upload Custom Logo</h4>
@@ -1409,7 +1542,7 @@ export default function Home() {
                     </button>
                   )}
 
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   {productConfig.elements.filter((e) => e.type === "logo").length > 0 && (
                     <div className="space-y-2">
@@ -1548,7 +1681,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   <div>
                     <h4 className="text-xs font-mono font-bold uppercase text-zinc-400 mb-2">Upload Logo Image</h4>
@@ -1582,7 +1715,7 @@ export default function Home() {
                     </button>
                   )}
 
-                  <div className="h-[1px] bg-zinc-800" />
+                  <div className="h-px bg-zinc-800" />
 
                   {productConfig.elements.filter((e) => e.type === "logo").length > 0 && (
                     <div className="space-y-2">
@@ -1636,12 +1769,12 @@ export default function Home() {
               </div>
 
               {/* Config summary */}
-              {selectedProduct === "tshirt" && (
+              {(selectedProduct === "tshirt" || selectedProduct === "bag") && (
                 <div className="space-y-2 p-3 rounded-lg border border-zinc-800 bg-zinc-950">
                   <h4 className="text-[11px] font-mono font-bold text-zinc-500 uppercase">Product Config</h4>
                   <div className="text-[10px] text-zinc-400 space-y-1">
                     <p>Product: {productConfig.product.productName}</p>
-                    <p>{productConfig.product.productLengthDesc}: {productConfig.product.sleeveLength}</p>
+                    {selectedProduct === "tshirt" && <p>{productConfig.product.productLengthDesc}: {productConfig.product.sleeveLength}</p>}
                     <p>Layers: {(productConfig.materials || []).length}</p>
                     <p>Elements: {productConfig.elements.length}</p>
                   </div>
@@ -1657,7 +1790,7 @@ export default function Home() {
               ) : (
                 <div className="space-y-2">
                   <h4 className="text-[11px] font-mono font-bold text-zinc-500 uppercase">Layers ({canvasLayers.length})</h4>
-                  <div className="space-y-1 max-h-[180px] overflow-y-auto pr-1">
+                  <div className="space-y-1 max-h-45 overflow-y-auto pr-1">
                     {canvasLayers.map((layer) => (
                       <div key={layer.id} onClick={() => selectLayer(layer)}
                         className={`flex items-center justify-between p-2.5 rounded-lg border transition cursor-pointer ${selectedLayerId === layer.id ? "bg-zinc-800 border-blue-500 text-blue-300" : "bg-zinc-950 border-zinc-800 hover:bg-zinc-900/60 text-zinc-400"}`}>
@@ -1682,7 +1815,7 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="h-[1px] bg-zinc-800" />
+              <div className="h-px bg-zinc-800" />
 
               <div className="space-y-3">
                 <h4 className="text-xs font-mono font-bold uppercase text-zinc-400">Export</h4>

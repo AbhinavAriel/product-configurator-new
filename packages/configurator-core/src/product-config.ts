@@ -1,4 +1,4 @@
-export type ProductType = "tshirt" | "mobilecase";
+export type ProductType = "tshirt" | "bag" | "mobilecase";
 
 export interface ProductInfo {
   sleeveLength?: string;
@@ -67,7 +67,7 @@ export interface ProductConfig {
 
 export const DEFAULT_TSHIRT_CONFIG: ProductConfig = {
   product: {
-    sleeveLength: "Long Sleeve",
+    sleeveLength: "Full Sleeves",
     productName: "Custom Jersey",
     productLengthDesc: "Sleeve Length",
     productType: "tshirt",
@@ -107,6 +107,208 @@ export const DEFAULT_TSHIRT_CONFIG: ProductConfig = {
     },
     {
       layerName: "Zk",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+  ],
+  elements: [],
+};
+
+export const DEFAULT_HALF_SLEEVE_TSHIRT_CONFIG: ProductConfig = {
+  product: {
+    sleeveLength: "Half Sleeve",
+    productName: "Custom Half Sleeve Jersey",
+    productLengthDesc: "Sleeve Length",
+    productType: "tshirt",
+  },
+  materials: [
+    {
+      layerName: "Body",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Outer Design",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Middle Design",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Set Sleeves",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Inner Placket",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Front Placket",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Collar",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Zapkam",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Zk",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+  ],
+  elements: [],
+};
+
+export const DEFAULT_SLEEVELESS_TSHIRT_CONFIG: ProductConfig = {
+  product: {
+    sleeveLength: "Sleeveless",
+    productName: "Custom Sleeveless Jersey",
+    productLengthDesc: "Sleeve Length",
+    productType: "tshirt",
+  },
+  materials: [
+    {
+      layerName: "Body",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Colour 1",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Colour 2",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Colour 3",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Sleeve Edge",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Round Neck",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Zk",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+  ],
+  elements: [],
+};
+
+export const DEFAULT_BAG_CONFIG: ProductConfig = {
+  product: {
+    productName: "Custom Bag",
+    productType: "bag",
+  },
+  materials: [
+    {
+      layerName: "Bag",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Zip",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Handle",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Piping",
+      materialName: "Polyester Double Interlock (Sublimation)",
+      gsm: "220-230 GSM",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Mesh",
       materialName: "Polyester Double Interlock (Sublimation)",
       gsm: "220-230 GSM",
       colourName: "Default",
