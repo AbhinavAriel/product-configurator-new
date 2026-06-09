@@ -21,11 +21,9 @@ export const TSHIRT_LAYER_PRESETS: Record<TshirtVariant, TshirtLayerPreset> = {
     clipPath: "/products/tshirt/01---Body.png",
     order: [
       "Body",
-      "Body Stripe",
       "Left Set Sleeve",
       "Right Set Sleeve",
       "Collar",
-      "Number Panel",
       "Zapkam",
       "Zk",
     ],

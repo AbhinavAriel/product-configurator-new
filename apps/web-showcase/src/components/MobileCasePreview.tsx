@@ -61,7 +61,7 @@ export default function MobileCasePreview({ materials, activeView, pattern, patt
     return (
       <div className="relative w-[320px] h-[550px]">
         {backColor ? (
-          <Layer src={BACK_COLOR} color={backColor} />
+          <Layer src={BACK_COLOR} color={backColor} hideOverlay={true} />
         ) : (
           <img
             src={BACK_COLOR}
@@ -89,7 +89,7 @@ export default function MobileCasePreview({ materials, activeView, pattern, patt
         )}
 
         {cameraBoxColor ? (
-          <Layer src={CAMERA_BOX} color={cameraBoxColor} />
+          <Layer src={CAMERA_BOX} color={cameraBoxColor} hideOverlay={true} />
         ) : (
           <img
             src={CAMERA_BOX}
@@ -111,7 +111,7 @@ export default function MobileCasePreview({ materials, activeView, pattern, patt
   return (
     <div className="relative w-[320px] h-[550px]">
       {backColor ? (
-        <Layer src={FRAME_SIDE} color={backColor} />
+        <Layer src={FRAME_SIDE} color={backColor} hideOverlay={true} />
       ) : (
         <img
           src={FRAME_SIDE}

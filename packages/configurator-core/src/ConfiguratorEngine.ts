@@ -81,6 +81,7 @@ export class ConfiguratorEngine {
       cornerSize: 10,
       borderColor: "#6366f1",
       borderScaleFactor: 2,
+      _textIndex: styleOptions._textIndex,
     });
 
     this.canvas.add(textObject);
@@ -93,9 +94,7 @@ export class ConfiguratorEngine {
     if (activeObject && activeObject instanceof Textbox) {
       activeObject.set(options);
       this.canvas.renderAll();
-      if (options.left !== undefined || options.top !== undefined) {
-        this.canvas.fire("object:modified", { target: activeObject });
-      }
+      this.canvas.fire("object:modified", { target: activeObject });
     }
   }
 
@@ -185,6 +184,7 @@ export class ConfiguratorEngine {
     }
 
     this.canvas.renderAll();
+    this.canvas.fire("object:modified", { target: activeObject });
   }
 
   public getActiveObjectType(): string | null {

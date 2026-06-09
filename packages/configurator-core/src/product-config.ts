@@ -1,4 +1,4 @@
-export type ProductType = "tshirt" | "bag" | "mobilecase";
+export type ProductType = "tshirt" | "bag" | "mobilecase" | "shorts";
 
 export interface ProductInfo {
   sleeveLength?: string;
@@ -340,5 +340,33 @@ export const DEFAULT_MOBILECASE_CONFIG: ProductConfig = {
   ],
   pattern: "none",
   patternColor: "#000000",
+  elements: [],
+};
+
+export const DEFAULT_SHORTS_CONFIG: ProductConfig = {
+  product: {
+    productName: "Custom Shorts",
+    productType: "shorts",
+  },
+  materials: [
+    {
+      layerName: "Body",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "Detail",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+    {
+      layerName: "ZK Logo",
+      colourName: "Default",
+      colourHex: "",
+      colourPantone: "",
+    },
+  ],
   elements: [],
 };

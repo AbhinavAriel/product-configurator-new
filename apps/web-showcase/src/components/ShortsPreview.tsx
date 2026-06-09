@@ -1,3 +1,5 @@
+"use client";
+
 import type { MaterialLayer } from "@configurator/core";
 import Layer from "./Layer";
 
@@ -5,24 +7,22 @@ interface Props {
   materials: MaterialLayer[];
 }
 
-export const BAG_LAYER_PRESETS: {
+export const SHORTS_LAYER_PRESETS: {
   clipPath: string;
   order: string[];
   images: Record<string, string>;
 } = {
-  clipPath: "/products/bag/01-Bag.png",
-  order: ["Bag", "Zip", "Handle", "Piping", "Mesh"],
+  clipPath: "/products/shorts/01-Body.png",
+  order: ["Body", "Detail", "ZK Logo"],
   images: {
-    Bag: "/products/bag/01-Bag.png",
-    Zip: "/products/bag/02-Zip.png",
-    Handle: "/products/bag/03-Handle.png",
-    Piping: "/products/bag/04-Piping.png",
-    Mesh: "/products/bag/05-Mesh.png",
+    "Body": "/products/shorts/01-Body.png",
+    "Detail": "/products/shorts/02-Detail.png",
+    "ZK Logo": "/products/shorts/03-ZK-Logo.png",
   },
 };
 
-export default function BagPreview({ materials }: Props) {
-  const preset = BAG_LAYER_PRESETS;
+export default function ShortsPreview({ materials }: Props) {
+  const preset = SHORTS_LAYER_PRESETS;
   const layerMap = new Map(materials.map((m) => [m.layerName, m]));
 
   const sortedLayers = preset.order
